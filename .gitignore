@@ -1,8 +1,13 @@
-echo 'venv/
+venv/
 __pycache__/
 *.pyc
-chroma/
 *.csv
 *.json
-.env
-.ipynb_checkpoints/' > .gitignorevenv/
+.ipynb_checkpoints/
+chroma/venv/
+__pycache__/
+*.pyc
+*.csv
+*.json
+.ipynb_checkpoints/
+chroma/
