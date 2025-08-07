@@ -1,31 +1,57 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from chromadb import PersistentClient
-from sentence_transformers import SentenceTransformer
+import chromadb
+from chromadb.config import Settings
+from sentence_transformers import SentenceTransformer, util
+import numpy as np
 
-app = FastAPI()
-model = SentenceTransformer("all-MiniLM-L6-v2")
+# Load embedding model
+embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# Load persistent ChromaDB
-client = PersistentClient(path="./chroma")
-collection = client.get_or_create_collection(name="arxiv-papers")
+# Load ChromaDB collection
+chroma_client = chromadb.PersistentClient(path="chroma")
+collection = chroma_client.get_or_create_collection("arxiv-papers")
 
-class Query(BaseModel):
-    question: str
-    top_k: int = 5
+# Custom search with cosine similarity and sentence highlighting
+def search(query, top_k=20):
+    query_embedding = embedding_model.encode(query, normalize_embeddings=True)
 
-@app.post("/search")
-def search_articles(query: Query):
-    embedding = model.encode(query.question).tolist()
-    results = collection.query(query_embeddings=[embedding], n_results=query.top_k)
-    output = []
-    for i in range(len(results["ids"][0])):
+    results = collection.query(
+        query_embeddings=[query_embedding.tolist()],
+        n_results=top_k,
+        include=["metadatas", "documents", "embeddings"]
+    )
+
+    scored_results = []
+
+    for i in range(len(results["documents"][0])):
+        abstract = results["documents"][0][i]
         metadata = results["metadatas"][0][i]
-        output.append({
-            "title": metadata.get("title"),
-            "url": metadata.get("url"),
-            "categories": metadata.get("categories"),
-            "date": metadata.get("date"),
-            "excerpt": results["documents"][0][i][:300] + "..."
+        doc_embedding = np.array(results["embeddings"][0][i])
+        doc_embedding = doc_embedding / np.linalg.norm(doc_embedding)
+
+        similarity = float(np.dot(query_embedding, doc_embedding))
+
+        print(f"[{i}] Title: {metadata.get('title')} | Similarity: {round(similarity, 3)}")
+
+        if similarity < 0.4:
+            continue
+
+        sentences = abstract.split(". ")
+        sent_embeddings = embedding_model.encode(sentences, normalize_embeddings=True)
+        sent_scores = util.cos_sim(query_embedding, sent_embeddings)[0]
+        top_indices = np.argsort(-sent_scores)[:2]
+        highlights = [sentences[j].strip() for j in top_indices]
+
+        scored_results.append({
+            "title": metadata.get("title", "Unknown"),
+            "url": metadata.get("url", ""),
+            "similarity": round(similarity, 3),
+            "highlights": highlights
         })
-    return {"results": output}
+
+    return {"query": query, "results": scored_results}
+
+
+# Test
+if __name__ == "__main__":
+    from pprint import pprint
+    pprint(search("obesity"))
