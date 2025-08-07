@@ -7,11 +7,11 @@ from tqdm import tqdm
 df = pd.read_csv("data/arxiv_cleaned.csv")
 
 # Load embedding model
-print("📦 Loading embedding model...")
+print("Loading embedding model...")
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # Init persistent ChromaDB client
-print("🔧 Initializing persistent ChromaDB client...")
+print("Initializing persistent ChromaDB client...")
 client = PersistentClient(path="./chroma")
 collection = client.get_or_create_collection(name="arxiv-papers")
 
@@ -19,7 +19,7 @@ collection = client.get_or_create_collection(name="arxiv-papers")
 # collection.delete(where={})
 
 # Embed and add documents
-print("🧠 Embedding texts and uploading to ChromaDB...")
+print("Embedding texts and uploading to ChromaDB...")
 for i, row in tqdm(df.iterrows(), total=len(df)):
     doc_id = str(row["id"])
     text = f"{row['title']} {row['abstract']}"
@@ -32,4 +32,4 @@ for i, row in tqdm(df.iterrows(), total=len(df)):
     }
     collection.add(documents=[text], ids=[doc_id], embeddings=[embedding], metadatas=[metadata])
 
-print("✅ Done. Your data is now persisted in ./chroma/")
+print("Done. Your data is now persisted in ./chroma/")
