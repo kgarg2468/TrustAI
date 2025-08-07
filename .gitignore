@@ -1,0 +1,8 @@
+echo 'venv/
+__pycache__/
+*.pyc
+chroma/
+*.csv
+*.json
+.env
+.ipynb_checkpoints/' > .gitignore
